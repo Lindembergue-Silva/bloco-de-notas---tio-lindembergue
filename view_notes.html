@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notas Salvas</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f4f4f9;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .note-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .note {
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .note img {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+
+    .note textarea {
+      width: 100%;
+      resize: none;
+      border: 1px solid #ccc;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    .actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .button {
+      padding: 10px 20px;
+      font-size: 14px;
+      color: white;
+      background: #007bff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      background: #0056b3;
+    }
+
+    .delete-button {
+      background: #dc3545;
+    }
+
+    .delete-button:hover {
+      background: #b02a37;
+    }
+  </style>
+</head>
+<body>
+  <h1>Notas Salvas</h1>
+  <div class="note-container" id="notesContainer">
+    <p>Carregando notas...</p>
+  </div>
+
+  <script>
+    const notesContainer = document.getElementById("notesContainer");
+
+    // Função para carregar as notas do IndexedDB
+    function loadNotes() {
+      const request = indexedDB.open("NotesDB", 1);
+
+      request.onsuccess = (e) => {
+        const db = e.target.result;
+        const tx = db.transaction("notes", "readonly");
+        const store = tx.objectStore("notes");
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = (event) => {
+          const notes = event.target.result;
+          displayNotes(notes);
+        };
+
+        getAllRequest.onerror = () => {
+          notesContainer.innerHTML = "<p>Erro ao carregar as notas!</p>";
+        };
+      };
+
+      request.onerror = () => {
+        notesContainer.innerHTML = "<p>Erro ao acessar o banco de dados!</p>";
+      };
+    }
+
+    // Função para exibir as notas na página
+    function displayNotes(notes) {
+      if (notes.length === 0) {
+        notesContainer.innerHTML = "<p>Nenhuma nota salva ainda.</p>";
+        return;
+      }
+
+      notesContainer.innerHTML = "";
+
+      notes.forEach((note) => {
+        const noteDiv = document.createElement("div");
+        noteDiv.className = "note";
+
+        const img = document.createElement("img");
+        img.src = note.drawing;
+
+        const textarea = document.createElement("textarea");
+        textarea.value = note.notes;
+        textarea.readOnly = true;
+
+        const actionsDiv = document.createElement("div");
+        actionsDiv.className = "actions";
+
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "Excluir";
+        deleteButton.className = "button delete-button";
+        deleteButton.onclick = () => deleteNote(note.id);
+
+        actionsDiv.appendChild(deleteButton);
+
+        noteDiv.appendChild(img);
+        noteDiv.appendChild(textarea);
+        noteDiv.appendChild(actionsDiv);
+
+        notesContainer.appendChild(noteDiv);
+      });
+    }
+
+    // Função para excluir uma nota do IndexedDB
+    function deleteNote(id) {
+      if (confirm("Tem certeza que deseja excluir esta nota?")) {
+        const request = indexedDB.open("NotesDB", 1);
+
+        request.onsuccess = (e) => {
+          const db = e.target.result;
+          const tx = db.transaction("notes", "readwrite");
+          const store = tx.objectStore("notes");
+          const deleteRequest = store.delete(id);
+
+          deleteRequest.onsuccess = () => {
+            alert("Nota excluída com sucesso!");
+            loadNotes();
+          };
+
+          deleteRequest.onerror = () => {
+            alert("Erro ao excluir a nota!");
+          };
+        };
+
+        request.onerror = () => {
+          alert("Erro ao acessar o banco de dados!");
+        };
+      }
+    }
+
+    // Carrega as notas ao abrir a página
+    loadNotes();
+  </script>
+</body>
+</html>
