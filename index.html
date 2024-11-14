@@ -52,12 +52,17 @@
     }
 
     button {
-      padding: 10px 20px;
-      font-size: 14px;
-      color: white;
+      padding: 10px;
+      font-size: 24px;
       background: #007bff;
+      color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       cursor: pointer;
     }
 
@@ -80,13 +85,14 @@
     <canvas id="drawingCanvas"></canvas>
     <textarea id="textNotes" placeholder="Escreva suas notas aqui..."></textarea>
     <div class="tools">
-      <button id="saveNotes">Salvar</button>
-      <button id="saveImage">Salvar como Imagem</button>
-      <button id="savePDF">Salvar como PDF</button>
-      <button id="viewNotes">Ver Notas Salvas</button>
-      <button id="toggleErase">Borracha</button>
-      <label for="eraseSize">Tamanho</label>
-      <input type="range" id="eraseSize" min="5" max="50" value="20">
+      <button id="saveNotes" title="Salvar">💾</button>
+      <button id="saveImage" title="Salvar como Imagem">🖼️</button>
+      <button id="savePDF" title="Salvar como PDF">📄</button>
+      <button id="viewNotes" title="Ver Notas">📂</button>
+      <button id="toggleErase" title="Borracha">🧹</button>
+      <label for="eraseSize" style="display: none;">Tamanho</label>
+      <input type="range" id="eraseSize" min="5" max="50" value="20" title="Tamanho da Borracha">
+      <button id="undo" title="Desfazer">↩️</button>
     </div>
   </div>
 
@@ -101,11 +107,13 @@
     const viewNotes = document.getElementById("viewNotes");
     const toggleErase = document.getElementById("toggleErase");
     const eraseSizeInput = document.getElementById("eraseSize");
+    const undoButton = document.getElementById("undo");
 
     let isDrawing = false;
     let isErasing = false;
     let eraseSize = parseInt(eraseSizeInput.value);
-    let startX, startY;
+    let history = [];
+    let currentHistoryIndex = -1;
 
     // Ajuste do tamanho do canvas
     function resizeCanvas() {
@@ -127,13 +135,35 @@
       eraseSize = parseInt(eraseSizeInput.value);
     });
 
-    // Eventos para dispositivos móveis e desktop
+    // Salvar histórico
+    function saveHistory() {
+      currentHistoryIndex++;
+      if (currentHistoryIndex < history.length) {
+        history = history.slice(0, currentHistoryIndex);
+      }
+      history.push(canvas.toDataURL());
+    }
+
+    // Função para desfazer
+    function undo() {
+      if (currentHistoryIndex > 0) {
+        currentHistoryIndex--;
+        const imgData = history[currentHistoryIndex];
+        const img = new Image();
+        img.src = imgData;
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+        };
+      }
+    }
+    undoButton.addEventListener("click", undo);
+
+    // Eventos para mouse e toque
     function startDrawing(e) {
       isDrawing = true;
       ctx.beginPath();
       const { x, y } = getCursorPosition(e);
-      startX = x;
-      startY = y;
       if (isErasing) {
         ctx.clearRect(x - eraseSize / 2, y - eraseSize / 2, eraseSize, eraseSize);
       } else {
@@ -144,7 +174,6 @@
     function draw(e) {
       if (!isDrawing) return;
       const { x, y } = getCursorPosition(e);
-
       if (isErasing) {
         ctx.clearRect(x - eraseSize / 2, y - eraseSize / 2, eraseSize, eraseSize);
       } else {
@@ -154,6 +183,7 @@
     }
 
     function stopDrawing() {
+      if (isDrawing) saveHistory();
       isDrawing = false;
       ctx.closePath();
     }
@@ -167,23 +197,21 @@
       };
     }
 
-    // Eventos para mouse
+    // Eventos do canvas
     canvas.addEventListener("mousedown", startDrawing);
     canvas.addEventListener("mousemove", draw);
     canvas.addEventListener("mouseup", stopDrawing);
     canvas.addEventListener("mouseout", stopDrawing);
 
-    // Eventos para toque
     canvas.addEventListener("touchstart", startDrawing);
     canvas.addEventListener("touchmove", draw);
     canvas.addEventListener("touchend", stopDrawing);
     canvas.addEventListener("touchcancel", stopDrawing);
 
-    // Função para salvar a nota no IndexedDB
+    // Salvar as notas
     saveNotes.addEventListener("click", () => {
       const drawingData = canvas.toDataURL();
       const noteText = textNotes.value;
-
       const request = indexedDB.open("NotesDB", 1);
       request.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -198,7 +226,6 @@
       };
     });
 
-    // Salvar como imagem
     saveImage.addEventListener("click", () => {
       const imageData = canvas.toDataURL("image/png");
       const link = document.createElement("a");
@@ -207,18 +234,15 @@
       link.click();
     });
 
-    // Salvar como PDF
     savePDF.addEventListener("click", () => {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF();
       const imgData = canvas.toDataURL("image/png");
-
       pdf.addImage(imgData, "PNG", 10, 10, 190, 140);
       pdf.text(textNotes.value, 10, 160);
       pdf.save("nota.pdf");
     });
 
-    // Navegar para a lista de notas
     viewNotes.addEventListener("click", () => {
       window.location.href = "view_notes.html";
     });
