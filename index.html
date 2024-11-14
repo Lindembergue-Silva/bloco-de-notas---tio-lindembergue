@@ -92,7 +92,7 @@
       <button id="toggleErase" title="Borracha">🧹</button>
       <label for="eraseSize" style="display: none;">Tamanho</label>
       <input type="range" id="eraseSize" min="5" max="50" value="20" title="Tamanho da Borracha">
-      <button id="undo" title="Desfazer">↩️</button>
+      <button id="clearAll" title="Apagar Tudo">🗑️</button>
     </div>
   </div>
 
@@ -107,13 +107,11 @@
     const viewNotes = document.getElementById("viewNotes");
     const toggleErase = document.getElementById("toggleErase");
     const eraseSizeInput = document.getElementById("eraseSize");
-    const undoButton = document.getElementById("undo");
+    const clearAllButton = document.getElementById("clearAll");
 
     let isDrawing = false;
     let isErasing = false;
     let eraseSize = parseInt(eraseSizeInput.value);
-    let history = [];
-    let currentHistoryIndex = -1;
 
     // Ajuste do tamanho do canvas
     function resizeCanvas() {
@@ -135,29 +133,13 @@
       eraseSize = parseInt(eraseSizeInput.value);
     });
 
-    // Salvar histórico
-    function saveHistory() {
-      currentHistoryIndex++;
-      if (currentHistoryIndex < history.length) {
-        history = history.slice(0, currentHistoryIndex);
-      }
-      history.push(canvas.toDataURL());
-    }
-
-    // Função para desfazer
-    function undo() {
-      if (currentHistoryIndex > 0) {
-        currentHistoryIndex--;
-        const imgData = history[currentHistoryIndex];
-        const img = new Image();
-        img.src = imgData;
-        img.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-        };
-      }
-    }
-    undoButton.addEventListener("click", undo);
+    // Limpar tudo (desenhos e texto)
+    clearAllButton.addEventListener("click", () => {
+      // Limpa o canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Limpa o campo de texto
+      textNotes.value = "";
+    });
 
     // Eventos para mouse e toque
     function startDrawing(e) {
@@ -183,7 +165,6 @@
     }
 
     function stopDrawing() {
-      if (isDrawing) saveHistory();
       isDrawing = false;
       ctx.closePath();
     }
