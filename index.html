@@ -3,74 +3,73 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bloco de Notas - LINDEMBERGUE</title>
+  <title>Bloco de Notas</title>
+  <link rel="manifest" href="manifest.json">
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      height: 100vh;
+      padding: 0;
       background: #f4f4f9;
       overflow: hidden;
-    }
-
-    .app {
-      width: 100%;
-      height: 100vh;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
       align-items: center;
-      padding: 20px;
-      background: white;
-      box-sizing: border-box;
+      height: 100vh;
     }
 
-    #drawingCanvas {
+    .app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       width: 100%;
-      flex: 1;
-      border: 1px solid #ccc;
-      cursor: crosshair;
-      margin-bottom: 10px;
-    }
-
-    #textNotes {
-      width: 100%;
-      min-height: 50px;
-      font-size: 16px;
-      resize: both; /* Permite redimensionar horizontal e verticalmente */
-      overflow: auto;
-      border: 1px solid #ccc;
+      height: 100%;
       padding: 10px;
       box-sizing: border-box;
     }
 
+    #drawingCanvas {
+      flex: 1;
+      border: 1px solid #ccc;
+      cursor: crosshair;
+      width: 100%;
+    }
+
+    #textNotes {
+      width: 100%;
+      resize: vertical;
+      height: 100px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    .tools {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     button {
       padding: 10px 20px;
-      font-size: 16px;
+      font-size: 14px;
       color: white;
       background: #007bff;
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      margin-top: 10px;
     }
 
     button:hover {
       background: #0056b3;
     }
 
-    .tools {
-      margin-top: 10px;
+    .eraser-active {
+      background: #dc3545;
     }
 
-    .tool-button {
-      margin: 0 10px;
-    }
-
-    #eraseSize, #penSize {
+    input[type="range"] {
       width: 100px;
     }
   </style>
@@ -81,15 +80,13 @@
     <canvas id="drawingCanvas"></canvas>
     <textarea id="textNotes" placeholder="Escreva suas notas aqui..."></textarea>
     <div class="tools">
-      <button id="saveNotes" class="tool-button">Salvar</button>
-      <button id="viewNotes" class="tool-button">Ver Notas Salvas</button>
-      <button id="saveImage" class="tool-button">Salvar como Imagem</button>
-      <button id="savePDF" class="tool-button">Salvar como PDF</button>
-      <button id="toggleErase" class="tool-button">Borracha</button>
-      <label for="eraseSize" class="tool-button">Tamanho da Borracha</label>
-      <input type="range" id="eraseSize" min="10" max="100" value="20" class="tool-button">
-      <label for="penSize" class="tool-button">Tamanho da Caneta</label>
-      <input type="range" id="penSize" min="1" max="10" value="3" class="tool-button">
+      <button id="saveNotes">Salvar</button>
+      <button id="saveImage">Salvar como Imagem</button>
+      <button id="savePDF">Salvar como PDF</button>
+      <button id="viewNotes">Ver Notas Salvas</button>
+      <button id="toggleErase">Borracha</button>
+      <label for="eraseSize">Tamanho</label>
+      <input type="range" id="eraseSize" min="5" max="50" value="20">
     </div>
   </div>
 
@@ -98,144 +95,133 @@
     const canvas = document.getElementById("drawingCanvas");
     const ctx = canvas.getContext("2d");
     const textNotes = document.getElementById("textNotes");
-    const saveButton = document.getElementById("saveNotes");
-    const viewNotesButton = document.getElementById("viewNotes");
-    const saveImageButton = document.getElementById("saveImage");
-    const savePDFButton = document.getElementById("savePDF");
-    const toggleEraseButton = document.getElementById("toggleErase");
+    const saveNotes = document.getElementById("saveNotes");
+    const saveImage = document.getElementById("saveImage");
+    const savePDF = document.getElementById("savePDF");
+    const viewNotes = document.getElementById("viewNotes");
+    const toggleErase = document.getElementById("toggleErase");
     const eraseSizeInput = document.getElementById("eraseSize");
-    const penSizeInput = document.getElementById("penSize");
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight - 200;
 
     let isDrawing = false;
     let isErasing = false;
-    let eraseSize = 20;
-    let penSize = 3;
-    let history = [];
-    let currentHistoryIndex = -1;
+    let eraseSize = parseInt(eraseSizeInput.value);
+    let startX, startY;
 
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    // Ajuste do tamanho do canvas
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight - 150;
+    }
+    resizeCanvas();
 
-    toggleEraseButton.addEventListener("click", () => {
+    window.addEventListener("resize", resizeCanvas);
+
+    // Alternar borracha
+    toggleErase.addEventListener("click", () => {
       isErasing = !isErasing;
-      toggleEraseButton.style.backgroundColor = isErasing ? "#dc3545" : "#007bff";
+      toggleErase.classList.toggle("eraser-active", isErasing);
     });
 
+    // Atualizar tamanho da borracha
     eraseSizeInput.addEventListener("input", () => {
-      eraseSize = parseInt(eraseSizeInput.value, 10);
+      eraseSize = parseInt(eraseSizeInput.value);
     });
 
-    penSizeInput.addEventListener("input", () => {
-      penSize = parseInt(penSizeInput.value, 10);
-      ctx.lineWidth = penSize;
-    });
-
-    canvas.addEventListener("mousedown", (e) => {
+    // Eventos para dispositivos móveis e desktop
+    function startDrawing(e) {
       isDrawing = true;
       ctx.beginPath();
-      ctx.moveTo(e.offsetX, e.offsetY);
-    });
-
-    canvas.addEventListener("mouseup", () => {
-      isDrawing = false;
-      saveHistory();
-    });
-
-    canvas.addEventListener("mousemove", (e) => {
-      if (!isDrawing) return;
-
+      const { x, y } = getCursorPosition(e);
+      startX = x;
+      startY = y;
       if (isErasing) {
-        ctx.clearRect(
-          e.offsetX - eraseSize / 2,
-          e.offsetY - eraseSize / 2,
-          eraseSize,
-          eraseSize
-        );
+        ctx.clearRect(x - eraseSize / 2, y - eraseSize / 2, eraseSize, eraseSize);
       } else {
-        ctx.lineTo(e.offsetX, e.offsetY);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(e.offsetX, e.offsetY);
+        ctx.moveTo(x, y);
       }
-    });
-
-    function saveHistory() {
-      if (currentHistoryIndex < history.length - 1) {
-        history = history.slice(0, currentHistoryIndex + 1);
-      }
-      history.push(canvas.toDataURL());
-      currentHistoryIndex++;
     }
 
-    function restoreHistory() {
-      if (currentHistoryIndex < 0) return;
-      const img = new Image();
-      img.src = history[currentHistoryIndex];
-      img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
+    function draw(e) {
+      if (!isDrawing) return;
+      const { x, y } = getCursorPosition(e);
+
+      if (isErasing) {
+        ctx.clearRect(x - eraseSize / 2, y - eraseSize / 2, eraseSize, eraseSize);
+      } else {
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+      ctx.closePath();
+    }
+
+    function getCursorPosition(e) {
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches ? e.touches[0] : e;
+      return {
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top
       };
     }
 
-    window.addEventListener("keydown", (e) => {
-      if (e.ctrlKey && e.key === "z") {
-        if (currentHistoryIndex > 0) {
-          currentHistoryIndex--;
-          restoreHistory();
-        }
-      }
-    });
+    // Eventos para mouse
+    canvas.addEventListener("mousedown", startDrawing);
+    canvas.addEventListener("mousemove", draw);
+    canvas.addEventListener("mouseup", stopDrawing);
+    canvas.addEventListener("mouseout", stopDrawing);
 
-    saveButton.addEventListener("click", () => {
+    // Eventos para toque
+    canvas.addEventListener("touchstart", startDrawing);
+    canvas.addEventListener("touchmove", draw);
+    canvas.addEventListener("touchend", stopDrawing);
+    canvas.addEventListener("touchcancel", stopDrawing);
+
+    // Função para salvar a nota no IndexedDB
+    saveNotes.addEventListener("click", () => {
       const drawingData = canvas.toDataURL();
-      const textData = textNotes.value;
+      const noteText = textNotes.value;
 
       const request = indexedDB.open("NotesDB", 1);
       request.onupgradeneeded = (e) => {
         const db = e.target.result;
         db.createObjectStore("notes", { keyPath: "id", autoIncrement: true });
       };
-
       request.onsuccess = (e) => {
         const db = e.target.result;
         const tx = db.transaction("notes", "readwrite");
         const store = tx.objectStore("notes");
-        store.add({ drawing: drawingData, notes: textData });
-
-        tx.oncomplete = () => alert("Notas salvas com sucesso!");
-        tx.onerror = () => alert("Erro ao salvar notas!");
+        store.add({ drawing: drawingData, notes: noteText });
+        tx.oncomplete = () => alert("Nota salva com sucesso!");
       };
-
-      request.onerror = () => alert("Erro ao acessar o banco de dados!");
     });
 
-    viewNotesButton.addEventListener("click", () => {
-      window.open("view_notes.html", "_blank");
-    });
-
-    saveImageButton.addEventListener("click", () => {
-      const image = canvas.toDataURL("image/png");
+    // Salvar como imagem
+    saveImage.addEventListener("click", () => {
+      const imageData = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.href = image;
+      link.href = imageData;
       link.download = "nota.png";
       link.click();
     });
 
-    savePDFButton.addEventListener("click", () => {
+    // Salvar como PDF
+    savePDF.addEventListener("click", () => {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
+      const pdf = new jsPDF();
       const imgData = canvas.toDataURL("image/png");
-      doc.addImage(imgData, "PNG", 10, 10, 180, 160);
-      doc.text(textNotes.value, 10, 170);
-      doc.save("nota.pdf");
+
+      pdf.addImage(imgData, "PNG", 10, 10, 190, 140);
+      pdf.text(textNotes.value, 10, 160);
+      pdf.save("nota.pdf");
     });
 
-    window.onload = () => {
-      saveHistory();
-    };
+    // Navegar para a lista de notas
+    viewNotes.addEventListener("click", () => {
+      window.location.href = "view_notes.html";
+    });
   </script>
 </body>
 </html>
